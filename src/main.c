@@ -56,11 +56,12 @@ char** split_args(char* arguments, int *count)
 
 struct command parse_buffer(char *buffer)
 {
-  char *first_word = strtok(buffer, " ");
+  char *buffer_copy = strdup(buffer);
+  char *first_word = strtok(buffer_copy, " ");
   int first_word_len = (int)strlen(first_word);
   char *args = first_word + first_word_len + 1;
 
-  if (first_word_len == 0)//Throw away if empty
+  if ((int)strlen(buffer) == 0)//Throw away if empty
     return (struct command){COMMAND_UNKNOWN};
 
   int args_count = 0;
