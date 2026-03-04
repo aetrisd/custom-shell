@@ -24,7 +24,7 @@ struct command
   enum builtin builtin;
   char* arguments; //single string
   int args_count;
-  char** args_array;
+  char** args_array; //args_array[0] is the first word
   char* executable_location;
 };
 
@@ -64,7 +64,7 @@ struct command parse_buffer(char *buffer)
     return (struct command){COMMAND_UNKNOWN};
 
   int args_count = 0;
-  char** args_arr = split_args(args, &args_count);
+  char** args_arr = split_args(buffer, &args_count);
 
   //Check for builtins
   if (strcmp(first_word, "echo") == 0)
