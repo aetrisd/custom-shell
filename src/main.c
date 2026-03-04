@@ -24,9 +24,8 @@ struct command
 {
   enum command_type command_type;
   enum builtin builtin;
-  char* arguments; //single string
-  int args_count;
-  char** args_array; //args_array[0] is the first word
+  int argument_count;
+  char** arguments; //args_array[0] is the first word
   char* executable_location;
 };
 
@@ -70,24 +69,19 @@ char** split_args(char* arguments, int *count)
 
 struct command parse_buffer(char *buffer)
 {
-  char *buffer_copy = strdup(buffer);
-  char *first_word = strtok(buffer_copy, " ");
-  int first_word_len = (int)strlen(first_word);
-  char *args = first_word + first_word_len + 1;
-
   if ((int)strlen(buffer) == 0)//Throw away if empty
     return (struct command){COMMAND_UNKNOWN};
 
-  int args_count = 0;
-  char** args_arr = split_args(buffer, &args_count);
+  int argument_count = 0;
+  char** arguments = split_args(buffer, &argument_count);
 
   //Check for builtins
-  if (strcmp(first_word, "echo") == 0)
-    return (struct command){COMMAND_BUILTIN, BUILTIN_ECHO, args, args_count, args_arr};
-  if (strcmp(first_word, "exit") == 0)
-    return (struct command){COMMAND_BUILTIN, BUILTIN_EXIT, args, args_count, args_arr};
-  if (strcmp(first_word, "type") == 0)
-    return (struct command){COMMAND_BUILTIN, BUILTIN_TYPE, args, args_count, args_arr};
+  if (strcmp(arguments[0], "echo") == 0)
+    return (struct command){COMMAND_BUILTIN, BUILTIN_ECHO, argument_count, arguments};
+  if (strcmp(arguments[0], "exit") == 0)
+    return (struct command){COMMAND_BUILTIN, BUILTIN_EXIT, argument_count, arguments};
+  if (strcmp(arguments[0], "type") == 0)
+    return (struct command){COMMAND_BUILTIN, BUILTIN_TYPE, argument_count, arguments};
 
   //Check for executables
   const char *env_path = getenv("PATH");
@@ -95,11 +89,11 @@ struct command parse_buffer(char *buffer)
   char *p = strtok(path_copy, ":");
   while (p) {
     char tmp[1024]; //build path to potential executable
-    snprintf(tmp, sizeof(tmp), "%s/%s", p, first_word);
+    snprintf(tmp, sizeof(tmp), "%s/%s", p, arguments[0]);
     if (access(tmp, X_OK) == 0)
     {
       char* exe_path = strdup(tmp);
-      return (struct command){COMMAND_EXECUTABLE, BUILTIN_NONE, args, args_count, args_arr, exe_path};
+      return (struct command){COMMAND_EXECUTABLE, BUILTIN_NONE, argument_count, arguments, exe_path};
     }
     p = strtok(nullptr, ":");
   }
@@ -108,28 +102,32 @@ struct command parse_buffer(char *buffer)
   return (struct command){COMMAND_UNKNOWN};;
 }
 
-void run_builtin(enum builtin builtin, char* arguments)
+void run_builtin(enum builtin builtin, int argument_count, char** arguments)
 {
   switch (builtin)
   {
   case BUILTIN_ECHO:
-    printf("%s\n", arguments);
+    for (int i = 1; i < argument_count; i++)
+    {
+      printf("%s ", arguments[i]);
+    }
+    printf("\n");
     break;
   case BUILTIN_EXIT:
     exit(0);
     break;
   case BUILTIN_TYPE:
-    struct command c = parse_buffer(arguments);
+    struct command c = parse_buffer(arguments[1]);
     switch (c.command_type)
     {
     case COMMAND_BUILTIN:
-      printf("%s is a shell builtin\n", arguments);
+      printf("%s is a shell builtin\n", arguments[1]);
       break;
     case COMMAND_EXECUTABLE:
-      printf("%s is %s\n", arguments, c.executable_location);
+      printf("%s is %s\n", arguments[1], c.executable_location);
       break;
     default:
-      printf("%s: not found\n", arguments);
+      printf("%s: not found\n", arguments[1]);
     }
     break;
   default:
@@ -139,11 +137,11 @@ void run_builtin(enum builtin builtin, char* arguments)
   }
 }
 
-void run_exec(char* executable_location, char** args_arr)
+void run_exec(char* executable_location, char** arguments)
 {
   pid_t pid = fork();
   if (pid == 0) {
-    execv(executable_location, args_arr);
+    execv(executable_location, arguments);
     exit(1);
   } else if (pid > 0) {
     wait(nullptr);
@@ -164,10 +162,10 @@ int main(int argc, char *argv[]) {
     switch (c.command_type)
     {
     case COMMAND_BUILTIN:
-      run_builtin(c.builtin, c.arguments);
+      run_builtin(c.builtin, c.argument_count, c.arguments);
       break;
     case COMMAND_EXECUTABLE:
-      run_exec(c.executable_location, c.args_array);
+      run_exec(c.executable_location, c.arguments);
       break;
     default:
     case COMMAND_UNKNOWN:
