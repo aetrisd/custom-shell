@@ -2,28 +2,72 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum builtin
+enum command_type
 {
-  unknown,
-  echo,
-  exit_command,
-  type,
+  COMMAND_BUILTIN,
+  COMMAND_EXECUTABLE,
+  COMMAND_UNKNOWN,
 };
 
-enum builtin parse_buffer(char *buffer)
+enum builtin
+{
+  BUILTIN_ECHO,
+  BUILTIN_EXIT,
+  BUILTIN_TYPE,
+  BUILTIN_NONE,
+};
+
+struct command
+{
+  enum command_type command_type;
+  enum builtin builtin;
+  char* arguments;
+};
+
+struct command parse_buffer(char *buffer)
 {
   const char *space = strchr(buffer, ' ');
   const int command_len = space ? space - buffer : (int)strlen(buffer);
+  //Throw away if empty
   if (command_len == 0)
-    return unknown;
+    return (struct command){COMMAND_UNKNOWN, BUILTIN_NONE, ""};
 
+  //Check for builtins
   if (strncmp(buffer, "echo", command_len) == 0)
-    return echo;
+    return (struct command){COMMAND_BUILTIN, BUILTIN_ECHO, buffer+5};
   if (strncmp(buffer, "exit", command_len) == 0)
-    return exit_command;
+    return (struct command){COMMAND_BUILTIN, BUILTIN_EXIT, buffer+5};
   if (strncmp(buffer, "type", command_len) == 0)
-    return type;
-  return unknown;
+    return (struct command){COMMAND_BUILTIN, BUILTIN_TYPE, buffer+5};
+
+  //Check for executables
+  const char *path = getenv("PATH");
+  //printf("%s", path);
+
+  return (struct command){COMMAND_UNKNOWN, BUILTIN_NONE, buffer};;
+}
+
+void run_builtin(enum builtin builtin, char* arguments)
+{
+  switch (builtin)
+  {
+  case BUILTIN_ECHO:
+    printf("%s\n", arguments);
+    break;
+  case BUILTIN_EXIT:
+    exit(0);
+    break;
+  case BUILTIN_TYPE:
+    if (parse_buffer(arguments).command_type != COMMAND_UNKNOWN)
+      printf("%s is a shell builtin\n", arguments);
+    else
+      printf("%s: not found\n", arguments);
+    break;
+  default:
+    printf("An error has occurred.\n");
+    exit(1);
+    break;
+  }
 }
 
 int main(int argc, char *argv[]) {
@@ -33,25 +77,20 @@ int main(int argc, char *argv[]) {
     setbuf(stdout, nullptr);
     printf("$ ");
     fgets(buffer, sizeof(buffer), stdin);
-    //Trim trailing newline. I don't exactly like this solution, probably gonna have to replace later if we need multi line support.
+    //Trim trailing newline. It trims the FIRST newline, not the last.
     buffer[strcspn(buffer, "\n")] = '\0';
 
-
-    switch (parse_buffer(buffer))
+    struct command c = parse_buffer(buffer);
+    switch (c.command_type)
     {
-    case echo:
-      printf("%s\n", buffer+5);
+    case COMMAND_BUILTIN:
+      run_builtin(c.builtin, c.arguments);
       break;
-    case exit_command:
+    case COMMAND_EXECUTABLE:
       exit(0);
       break;
-    case type:
-      if (parse_buffer(buffer+5) != unknown)
-        printf("%s is a shell builtin\n", buffer+5);
-      else
-        printf("%s: not found\n", buffer+5);
-      break;
-    case unknown:
+    default:
+    case COMMAND_UNKNOWN:
       printf("%s: command not found\n", buffer);
       break;
     }
