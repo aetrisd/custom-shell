@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 enum command_type
 {
@@ -51,6 +53,18 @@ char** split_args(char* arguments, int *count)
   }
 
   free(copy);
+
+  char **tmp = realloc(result, sizeof(char *) * (*count + 1));
+  if (!tmp) {
+    for (int i = 0; i < *count; i++)
+      free(result[i]);
+    free(result);
+    *count = 0;
+    return nullptr;
+  }
+  result = tmp;
+  result[*count] = nullptr;
+
   return result;
 }
 
@@ -127,7 +141,13 @@ void run_builtin(enum builtin builtin, char* arguments)
 
 void run_exec(char* executable_location, char** args_arr)
 {
-  execv(executable_location, args_arr);
+  pid_t pid = fork();
+  if (pid == 0) {
+    execv(executable_location, args_arr);
+    exit(1);
+  } else if (pid > 0) {
+    wait(nullptr);
+  }
 }
 
 int main(int argc, char *argv[]) {
