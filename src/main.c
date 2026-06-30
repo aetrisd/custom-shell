@@ -19,6 +19,7 @@ enum builtin
   BUILTIN_EXIT,
   BUILTIN_TYPE,
   BUILTIN_PWD,
+  BUILTIN_CD,
   BUILTIN_NONE,
 };
 
@@ -86,6 +87,8 @@ struct command parse_buffer(char *buffer)
     return (struct command){COMMAND_BUILTIN, BUILTIN_TYPE, argument_count, arguments};
   if (strcmp(arguments[0], "pwd") == 0)
     return (struct command){COMMAND_BUILTIN, BUILTIN_PWD, argument_count, arguments};
+  if (strcmp(arguments[0], "cd") == 0)
+    return (struct command){COMMAND_BUILTIN, BUILTIN_CD, argument_count, arguments};
 
   //Check for executables
   const char *env_path = getenv("PATH");
@@ -104,6 +107,11 @@ struct command parse_buffer(char *buffer)
 
   //Nothing found
   return (struct command){COMMAND_UNKNOWN};;
+}
+
+void change_dir(char** arguments)
+{
+
 }
 
 void run_builtin(enum builtin builtin, int argument_count, char** arguments)
@@ -139,6 +147,8 @@ void run_builtin(enum builtin builtin, int argument_count, char** arguments)
     getcwd(cwd, sizeof(cwd));
     printf("%s\n", cwd);
     break;
+  case BUILTIN_CD:
+    change_dir(arguments);
   default:
     printf("An error has occurred.\n");
     exit(1);
